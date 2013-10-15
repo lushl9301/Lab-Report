@@ -1,0 +1,35 @@
+1 220Omega
+v = 1.47V
+I = 6.66mA
+P = 9.76mW
+Imax = 33.71mA
+
+2 680Omega
+v = 4.55V
+P = 30.29mW
+Imax = 19.17mA
+
+
+
+1 220Omega
+V = 0.93V
+I = 4.06mA
+
+
+2 470Omega
+V = 7.06V
+I = 14.59mA
+
+
+3 100Omega
+V = 0.93V
+I = 8.81mA
+
+
+4 680Omega
+V = 0.93V
+I = 1.34mA
+
+
+Rab = 548.32Omega
+Rab = 532.44Omega(calculated)

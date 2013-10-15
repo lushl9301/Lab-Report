@@ -1,0 +1,308 @@
+%
+% Main thesis LaTeX file. We use the REPORT style format
+% instead of article for most technical papers
+%
+%
+\documentclass[12pt,fleqn]{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% list the set of packages we use for various aspects of 
+% the thesis format
+%
+\usepackage{layout}
+\usepackage[utf8]{inputenc}
+\usepackage{setspace}
+
+\usepackage{subfigure}
+\usepackage{epsfig}
+\usepackage{float}
+\usepackage{floatflt}
+\usepackage{listings}
+\usepackage{palatino}
+\usepackage{verbatim}
+\usepackage{footnpag}
+\usepackage{caption}
+\usepackage[mathcal, mathbf]{euler}
+\usepackage{amsmath}
+\usepackage{amstext}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% include two local LaTeX source files that establish the
+% thesis layout and the set of additional commands we find
+% useful for creating the text.
+%
+\input{layout}
+\input{newcommands}
+\input{outline_support}
+
+
+\newcommand{\Organization}{School of Computer Engineering}
+
+\title{CE3001 Lab2. Register File(RF)}
+
+\author{
+  Lu Shengliang \\
+  SLU001\\
+  \Organization{} \\
+  \vspace*{-10mm} \\
+  Nanyang Technological University \\
+  \vspace*{-10mm} \\
+  SLU001@e.ntu.edu.sg
+}
+
+%
+% This begins the actual lab report
+%
+\renewcommand{\OutlineLevel}{2}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\ls{1}
+A register file(RF) is an array of data storage registers while the central processing unit(CPU) is working on it. The RF designed in this report is 16*16-bit with data read and controlled write processes.
+\ls{1.2}
+\end{abstract}
+
+\ls{1.2}
+
+
+\section{Introduction}
+
+\label{sec:intro}
+
+%=====================================================================
+\subsection{Description of RF Specification} 
+All the registers in the RF are positive edge triggered flip-flops. The specification of port lists is described in Table 1.
+\begin{table}
+  \begin{tabular}{| c | c | r | l |}
+    \hline
+    \textbf{Port} & \textbf{Direction} & \textbf{Size} & \textbf{Description}\\ \hline
+    RAddr1 & Input & 4-bit & Address for first Read Port\\
+    \hline
+    RAddr2 & Input & 4-bit & Address for second Read Port\\
+    \hline
+    WAddr & Input & 4-bit & Address for Write Port\\
+    \hline
+    WData & Input & 16-bit & Data for Write Port\\
+    \hline
+    Wen & Input & 1-bit & Active-High enable signal for Write Port\\
+    \hline
+    Clock & Input & 1-bit & Clock signal for the circuit\\
+    \hline
+    Reset & Input & 1-bit & Reset signal. Synchronous active-low.\\
+    \hline
+    RData1 & Output & 16-bit & Data for first Read Port\\
+    \hline
+    RData2 & Output & 16-bit & Data for second Read Port\\
+    \hline
+  \end{tabular}
+  
+  \begin{tablenotes}
+    \emph{Note}: Register 0 is always 0; All registers are reset to 0x0000 when \emph{reset} is asserted; The RF supports simultaneous reads and write.
+  \end{tablenotes}
+  \caption{RF Port List Specification}
+\end{table}
+
+
+%=====================================================================
+\subsection{Structure of the rest of the paper}
+The rest of the paper first describes the Verilog implementation of RF in \emph{Section \ref{sec:impl}}. \emph{Section \ref{sec:eval}} presents the experimental results using testbench, which valid the functionality of our RF. \emph{Section \ref{sec:concl}} presents our conclusions and discussions.
+%=====================================================================
+
+
+\section{Implementation}
+\label{sec:impl}
+
+%=====================================================================
+
+\subsection{Verilog Code RF.v}
+\lstset {
+    language=Verilog,
+    backgroundcolor=\color{black!5},
+    basicstyle=\ttfamily\footnotesize,
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single
+}
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+module Reg_File (RAddr1, RAddr2, WAddr, WData,
+                 Wen, Clock, Reset, RData1, RData2);
+  input [3:0]  RAddr1, RAddr2;
+  input [3:0]  WAddr;
+  input [15:0] WData;
+  input        Wen, Clock, Reset;
+  
+  output reg [15:0] RData1, RData2;
+         reg [15:0] regFile [0:15];
+  integer           i;
+  
+  always @(!Reset) begin
+    for (i = 0; i < 8; i = i + 1) begin
+      regFile[i] <= 16'b0;
+    end
+  end
+  always @(posedge Clock) begin
+    if (Reset) begin
+      if (Wen) regFile[WAddr] <= WData;
+      regFile[0] = 0;    
+      RData1 = regFile[RAddr1];
+      RData2 = regFile[RAddr2];
+    end
+  end
+endmodule // Reg_File
+\end{lstlisting}
+\end{\baselinestretch}
+Our implementing strategies are using \emph{always} block to test the \emph{Reset} signal. If \emph{Reset} is asserted, the RF will be flushed to \emph{zero}. Besides, whenever there is a posedge of the \emph{Clock} signal, the \emph{Reset} is not asserted and the write enable signal \emph{Wen} is asserted, \emph{WData} will be written into RF at the location of \emph{WAddr}.
+\\
+Two words will be read from RF as the result of no \emph{Reset} signal.
+\\
+The implementation results will be listed in \emph{Section \ref{sec:eval}}.
+
+\section{Evaluation}
+\label{sec:eval}
+
+%=====================================================================
+\subsection{Testbench Code 1 RF\underline{ }tb.v}
+\lstset {
+    language=Verilog,
+    backgroundcolor=\color{black!5},
+    basicstyle=\ttfamily\footnotesize,
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single
+}
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+`define RSIZE 4
+`define DSIZE 16
+`timescale 1ns / 100ps
+module RF_tb ();
+  reg clk, rst, wen;
+  reg [`RSIZE-1:0] RAddr1, RAddr2;
+  reg [`RSIZE-1:0] WAddr;
+  reg [`DSIZE-1:0] WData;
+  
+  wire [`DSIZE-1:0] RData1, RData2;
+  integer           i;    
+  Reg_File RF_inst (
+                    .Clock(clk), .Reset(rst), .Wen(wen),
+                    .RAddr1(RAddr1), .RAddr2(RAddr2),
+                    .WAddr(WAddr), .WData(WData),
+                    .RData1(RData1), .RData2(RData2)
+                    );
+  always #5 clk = ~clk;
+
+  initial begin
+    clk = 0;
+    rst = 1;
+    wen = 0;
+    #5 rst = 0;
+    #10 rst = 1;
+    wen = 1;
+
+    for (i=0; i<16; i=i+1)  //write to RF
+      begin
+        #5 WAddr = i;
+           WData = i+16;
+        #10  $display("Write: WAddr=%h, WData=%h\n",WAddr ,WData);
+      end
+    $display("=============================");
+
+    for (i=0; i<16; i=i+2)    // read from RF
+      begin
+        #5 RAddr1 = i; RAddr2 = i+1;
+        #10 $display("Read: RData1=%h, RData2=%h\n",RData1, RData2);
+      end
+    $display("=============================");
+    
+    for (i=0; i<14; i=i+2)    //2 reads and 1 write in one cycle
+      begin                   //simultaneous
+        #5 RAddr1 = i; RAddr2 = i+1;
+           WAddr = i+2;
+           WData = 5;
+        #10 $display("Read: RData1=%h, RData2=%h\n",RData1, RData2);
+      end
+    #5 RAddr1 = 14; RAddr2 = 15;
+    #10 $display("Read: RData1=%h, RData2=%h\n",RData1, RData2);
+    #1000 $finish;
+  end
+endmodule // end of RF_tb
+\end{lstlisting}
+\end{\baselinestretch}
+A testbench has been designed to test the \emph{RF.v} file. A simulation function is provided by \emph{ModelSim} software. 
+The Testbench uses three \emph{for} loops. First \emph{for} loop is used to write initial value into RF. Second \emph{for} loop is used to check what was grated in to the RF. The last \emph{for} simultaneously reads twice and write once.
+The console output will be provided below.
+%=====================================================================
+\subsection{Testbench result of RF\underline{ }tb.v}
+\lstset {
+    language=Verilog,
+    backgroundcolor=\color{black!5},
+    basicstyle=\ttfamily\footnotesize,
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single
+}
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+# Writing: WAddr=0, WData=0010# 
+# Writing: WAddr=1, WData=0011# 
+# Writing: WAddr=2, WData=0012# 
+# Writing: WAddr=3, WData=0013# 
+# Writing: WAddr=4, WData=0014# 
+# Writing: WAddr=5, WData=0015# 
+# Writing: WAddr=6, WData=0016# 
+# Writing: WAddr=7, WData=0017# 
+# Writing: WAddr=8, WData=0018# 
+# Writing: WAddr=9, WData=0019# 
+# Writing: WAddr=a, WData=001a# 
+# Writing: WAddr=b, WData=001b# 
+# Writing: WAddr=c, WData=001c# 
+# Writing: WAddr=d, WData=001d# 
+# Writing: WAddr=e, WData=001e# 
+# Writing: WAddr=f, WData=001f# 
+# =============================
+# Reading: RData1=0000, RData2=0011# 
+# Reading: RData1=0012, RData2=0013# 
+# Reading: RData1=0014, RData2=0015# 
+# Reading: RData1=0016, RData2=0017# 
+# Reading: RData1=0018, RData2=0019# 
+# Reading: RData1=001a, RData2=001b# 
+# Reading: RData1=001c, RData2=001d# 
+# Reading: RData1=001e, RData2=001f# 
+# =============================
+# Reading: RData1=0000, RData2=0011# 
+# Reading: RData1=0005, RData2=0013# 
+# Reading: RData1=0005, RData2=0015# 
+# Reading: RData1=0005, RData2=0017# 
+# Reading: RData1=0005, RData2=0019# 
+# Reading: RData1=0005, RData2=001b# 
+# Reading: RData1=0005, RData2=001d#
+# Reading: RData1=0005, RData2=001f#
+\end{lstlisting}
+\end{\baselinestretch}
+
+Simulations results are intuitive and clear for the implementation of RF. The first set of output is displaying what is written into RF. The second set of output is displaying the reading results from RF. For the last set, the testbench tests the simultaneously read and write Implementation by read first 2 words' data and flush the next register into a certain value 5.
+
+\section{Conclusions and Future Work}
+\label{sec:concl}
+The RF design works properly based on two sets testing results.
+\\ 
+%=====================================================================
+%\subsection{\emph{Problems} occurred in our approach}
+For this report, the timing delays inside testbench should be paid attention, because some delay can cause instruction missing. 
+The value of register 0, which is located at address 0, should always be 0. 
+\\
+%\subsection{Available \emph{Improvement}}
+One improvement is the approaching a versions that handles read-after-write hazards. 
+Another one is the combination with ALU and later laboratory implementations.
+%=====================================================================
+\end{document}
