@@ -1,0 +1,38 @@
+// file_input.txt
+// format:
+// Instruction(hex)	DataInit(hex)	InitSel(bin)
+// First, initialize the register file
+8000	0010	0
+8100	0011	0
+8200	0012	0
+8300	0013	0
+8400	0014	0
+8500	0015	0
+8600	0016	0
+8700	0017	0
+8800	0018	0
+8900	0019	0
+8a00	001a	0
+8b00	001b	0
+8c00	001c	0
+8d00	001d	0
+8e00	001e	0
+8f00	001f	0
+
+// verify alu
+8321	xxxx	1
+9421	xxxx	1
+a521	xxxx	1
+b621	xxxx	1
+c721	xxxx	1
+d821	xxxx	1
+e921	xxxx	1
+fa21	xxxx	1
+
+
+
+
+
+
+
+
