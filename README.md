@@ -6,5 +6,4 @@ Lab Report from Shengliang
 	tex file lost. What a pity....
 ####CE3001 lab 2
 ####CE3001 lab 3
-	haven't finished it yet.
 ####CE2004 lab 1 & 2
