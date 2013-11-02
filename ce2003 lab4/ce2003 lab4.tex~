@@ -1,0 +1,443 @@
+%
+% Main thesis LaTeX file. We use the REPORT style format
+% instead of article for most technical papers
+%
+%
+\documentclass[12pt,fleqn]{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% list the set of packages we use for various aspects of 
+% the thesis format
+%
+\usepackage{layout}
+\usepackage[utf8]{inputenc}
+\usepackage{setspace}
+
+\usepackage{tabularx}
+\usepackage{subfigure}
+\usepackage{epsfig}
+\usepackage{float}
+\usepackage{floatflt}
+\usepackage{listings}
+\usepackage{palatino}
+\usepackage{verbatim}
+\usepackage{footnpag}
+\usepackage{caption}
+\usepackage[mathcal, mathbf]{euler}
+\usepackage{amsmath}
+\usepackage{amstext}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{multicol}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% include two local LaTeX source files that establish the
+% thesis layout and the set of additional commands we find
+% useful for creating the text.
+%
+\input{layout}
+\input{newcommands}
+\input{outline_support}
+
+
+\newcommand{\Organization}{School of Computer Engineering}
+
+\title{CE2003 Laboratory 4}
+
+\author{
+  Lu Shengliang \\
+  SLU001\\
+  \Organization{} \\
+  \vspace*{-10mm} \\
+  Nanyang Technological University \\
+  \vspace*{-10mm} \\
+  SLU001@e.ntu.edu.sg
+}
+
+%
+% This begins the actual lab report
+%
+\renewcommand{\OutlineLevel}{2}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\ls{1}
+The aim of this lab is to build a project to process pixel input from a camera and then output on the screen after a series of process in real time. Several stages of pipelines were employed during this lab session to increase clock frequecy, which results a better performance than non-pipelined.
+\ls{1.2}
+\end{abstract}
+
+\ls{1.2}
+
+
+\section{Introduction}
+\label{sec:intro}
+
+%=====================================================================
+\subsection{Design Modules}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{overall.png}
+\caption{Design Diagram}
+\end{figure}
+There are 3 modules in this design. They are \textbf{\emph{delay\underline{ }line}}, \textbf{\emph{rgbyuv}} and \textbf{\emph{pixel}}. Bascially, \textbf{\emph{rgbyuv}} is used to convert RGB signals from a camera to YUV, which is introduced in lab manual; \textbf{\emph{Delay\underline{ }line}} module is used to align signal in order to synchronize related input and control signal; Module \textbf{\emph{pixsel}} is used to select wanted signal from the previous two module according to control signal and output it to the top module then display on the screen.
+
+%=====================================================================
+\subsection{Structure of the rest of the paper}
+The rest of the paper first describes the Verilog implementation of \textbf{\emph{Task 1: rgbyuv Module}} in \emph{Section \ref{sec:task1}}; \textbf{\emph{Task 2: delay\underline{ }line Module}} in \emph{Section \ref{sec:task2}}; And \emph{Section \ref{sec:task34}} presents the experimental results pixsels seclections and color effects. Lastly, \emph{Section \ref{sec:concl}} presents our conclusions and discussions.
+%=====================================================================
+
+
+\section{Task 1: rgbyuv Module}
+\label{sec:task1}
+
+%=====================================================================
+
+\subsection{Verilog Code rgbyuv.v Non-pipelined}
+\lstset {
+    language=Verilog,
+    backgroundcolor=\color{black!5},
+    basicstyle=\ttfamily\footnotesize,
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single
+}
+{\linespread{0.75}
+\begin{lstlisting}
+ry<=((RY_COEF * red_r + GY_COEF * grn_r + BY_COEF * blu_r)>>>8)+16;
+ru<=((RU_COEF * red_r + GU_COEF * grn_r + BU_COEF * blu_r)>>>8)+128;
+rv<=((RV_COEF * red_r + GV_COEF * grn_r + BV_COEF * blu_r)>>>8)+128;
+\end{lstlisting}
+\par}
+Synthesize this top module and check the synthesis report. Under the synthesis report, there is a device utilization summary. It shows that, 9 DSP blocks are in utilization.
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{DSP9.jpg}
+\caption{DSP Blocks}
+\end{figure}
+In the synthesis report, the maximum frequency is 77.873MHz.
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{77.jpg}
+\caption{Frequency}
+\end{figure}
+\subsection{Verilog Code rgbyuv.v with 2-stage pipelines}
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+ry <= RY_COEF * red_r + GY_COEF * grn_r + BY_COEF * blu_r;
+ru <= RU_COEF * red_r + GU_COEF * grn_r + BU_COEF * blu_r;
+rv <= RV_COEF * red_r + GV_COEF * grn_r + BV_COEF * blu_r;
+o_y <= (ry >>> 8) + 16;
+o_u <= (ru >>> 8) + 128;
+o_v <= (rv >>> 8) + 128;
+\end{lstlisting}
+\end{\baselinestretch}
+In the synthesis report, the maximum frequency is 96.034MHz.
+Compared to the previous two, the last implementation is much better and manage to achieve 108MHz.
+\subsection{Verilog Code rgbyuv.v with 3-stage pipelines}
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+ry1 <= RY_COEF * red_r;
+ry2 <= GY_COEF * grn_r;
+ry3 <= BY_COEF * blu_r;
+ru1 <= RU_COEF * red_r;
+ru2 <= GU_COEF * grn_r;
+ru3 <= BU_COEF * blu_r;
+rv1 <= RV_COEF * red_r;
+rv2 <= GV_COEF * grn_r;
+rv3 <= BV_COEF * blu_r;
+ry <= ry1 + ry2 + ry3;
+ru <= ru1 + ru2 + ru3;
+rv <= rv1 + rv2 + rv3;
+o_y <= (ry >>> 8) + 16;
+o_u <= (ru >>> 8) + 128;
+o_v <= (rv >>> 8) + 128;
+\end{lstlisting}
+\end{\baselinestretch}
+This time, the frequency is 209.249MHz.
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{209.jpg}
+\caption{Frequency 3}
+\end{figure}
+Because all the mutiplications at the first stage will be the critical path for the whole pipelines. So if they are separated like the code above, the critical path is split into 3 similar part, which results in a high frequency achivement.
+
+\subsection{skin pixel detection with a 4-stage pipeline}
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+      //add one more stage
+      p_y <= (ry >>> 8) + 16;
+      p_u <= (ru >>> 8) + 128;
+      p_v <= (rv >>> 8) + 128;
+      o_y <= p_y; o_u <= p_u; o_v <= p_v;
+    end
+  end // always @ (posedge clk)
+  
+  always @(posedge clk) begin
+    if (rst) begin
+      skind <= 1'b0;
+    end else begin
+      if (73 <= p_u && p_u <= 122 && 132 <= p_v && p_v <= 173) begin
+        skind <= 1'b1;
+      end else begin
+        skind <= 1'b0;
+      end
+    end
+  end // always @ (posedge clk)
+\end{lstlisting}
+\end{\baselinestretch}
+If a pixel is detected having a skin like color by using YUV analysis, a 1-bit register will be asserted, otherwise 0.
+At the end of final synthesis, the maximum frequency is still 209.249MHz.
+%====================================
+
+\section{Task 2: delay\underline{ }line Module}
+\label{sec:task2}
+\subsection{Verilog Code delay\underline{ }line.v}
+%\begin{multicols}{2}
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+always @(posedge clk) begin
+    if(rst) begin
+      in_r_p1 <=8'd0;
+      in_r_p2 <= 8'd0;
+      in_r_p3 <= 8'd0;
+      in_r_p4 <= 8'd0;
+      out_r <= 8'd0;
+      
+      in_g_p1 <=8'd0;
+      in_g_p2 <= 8'd0;
+      in_g_p3 <= 8'd0;
+      in_g_p4 <= 8'd0;
+      out_g <= 8'd0;
+      
+      in_b_p1 <=8'd0;
+      in_b_p2 <= 8'd0;
+      in_b_p3 <= 8'd0;
+      in_b_p4 <= 8'd0;
+      out_b <= 8'd0;
+      
+      in_c_p1 <=8'd0;
+      in_c_p2 <= 8'd0;
+      in_c_p3 <= 8'd0;
+      in_c_p4 <= 8'd0;
+      out_c <= 8'd0;
+    end else begin
+      in_r_p1 <= in_r;
+      in_r_p2 <= in_r_p1;
+      in_r_p3 <= in_r_p2;
+      in_r_p4 <= in_r_p3;
+      out_r   <= in_r_p3;
+		  
+      in_g_p1 <= in_g;
+      in_g_p2 <= in_g_p1;
+      in_g_p3 <= in_g_p2;
+      in_g_p4 <= in_g_p3;
+      out_g   <= in_g_p4;
+      
+      in_b_p1 <= in_b;
+      in_b_p2 <= in_b_p1;
+      in_b_p3 <= in_b_p2;
+      in_b_p4 <= in_b_p3;
+      out_b   <= in_b_p4;
+      
+      in_c_p1 <= in_c;
+      in_c_p2 <= in_c_p1;
+      in_c_p3 <= in_c_p2;
+      in_c_p4 <= in_c_p3;
+      out_c   <= in_c_p4;
+    end // else: !if(rst)
+  end // always @ (posedge clk)
+endmodule // delay_line
+\end{lstlisting}
+\end{\baselinestretch}
+%\end{multicols}
+As we can see from the module name, \textbf{\emph{delay\underline{}line}} is used to delay the input signal by using pipelines. Because we are currently using a 5-stage pipelined datapath in \textbf{\emph{rgbyuv.v}}, \textbf{\emph{delay\underline{}line}} are suppossed to have the same stage delay as it. 
+
+
+\section{Task 3 \& 4: Logically Display}
+\label{sec:task34}
+%=====================================================================
+Task 3 and task 4 are combined together, because task 4 is roughly improvement of task 3 with more pixel operations.
+\subsection{Verilog Code }
+\lstset {
+    language=Verilog,
+    backgroundcolor=\color{black!5},
+    basicstyle=\ttfamily\footnotesize,
+    numbers=left,
+    numberstyle=\tiny,
+    frame=single
+}
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+  always @(posedge clk) begin
+    if(rst) begin
+      out_r <= 8'd0;
+      out_g <= 8'd0;
+      out_b <= 8'd0;
+      out_ctrl <= 3'd0;
+      end else begin
+        case(in_swt)
+          1 : begin
+            out_r <= in_y; out_g <= in_y; out_b <= in_y;
+          end
+          2 : begin
+            out_r <= in_u; out_g <= in_u; out_b <= in_u;
+          end
+          4 : begin
+            out_r <= in_v; out_g <= in_v; out_b <= in_v;
+          end
+          /*8 : begin
+            if (in_skin) begin
+              out_r <= in_y; out_g <= in_y; out_b <= in_y;
+            end else begin
+              out_r <= 1'b0; out_g <= 1'b0; out_b <= 1'b0;
+            end
+          end*/
+          //display with maximum green
+          8 : begin
+            if (in_skin) begin
+              out_r <= min_r; out_g <= max_g; out_b <= min_b;
+            end else begin
+              out_r <= in_r; out_g <= in_g; out_b <= in_b;
+            end
+          end
+          //display with maximum red
+          16 : begin
+            if (in_skin) begin
+              out_r <= max_r; out_g <= min_g; out_b <= min_b;
+            end else begin
+              out_r <= in_r; out_g <= in_g; out_b <= in_b;
+            end
+          end
+          //display with maximum blue
+          32 : begin
+            if (in_skin) begin
+              out_r <= min_r; out_g <= min_g; out_b <= max_b;
+            end else begin
+              out_r <= in_r; out_g <= in_g; out_b <= in_b;
+            end
+          end
+          //display with maximum red, green and blue
+          64 : begin
+            if (in_skin) begin
+              out_r <= max_r; out_g <= max_g; out_b <= max_b;
+            end else begin
+              out_r <= in_r; out_g <= in_g; out_b <= in_b;
+            end
+          end
+          //display original skin color. otherwise max r & g & b
+          128 : begin
+            if (in_skin) begin
+              out_r <= in_r; out_g <= in_g; out_b <= in_b;
+            end else begin
+              out_r <= max_r; out_g <= max_g; out_b <= max_b;
+            end
+          end
+          //for fun
+          255 : begin
+            if (in_skin) begin
+              out_r <= in_r; out_g <= in_g; out_b <= in_b;
+            end else begin
+              out_r <= min_r; out_g <= min_g; out_b <= min_b;
+            end
+          end
+          default : begin
+            out_r <= in_r; out_g <= in_g; out_b <= in_b;
+          end
+        endcase // case (in_swt)
+        out_ctrl <= in_c;
+      end // else: !if(rst)
+  end // always @ (posedge clk)
+\end{lstlisting}
+\end{\baselinestretch}
+A one-hot stratage was employed to control the pixel seclections. More detailed results will be given.
+\textbf{\emph{Case 1, 2, 4:}}\\
+The screen turned black and white in case 1, because there is no color output from \emph{pixel.v}, except \emph{y}, which is the luminance or brightness of a pixel; The screen turned inversed darkness and grey in switch 2 and turning palely grey in switch 4.\\
+\textbf{\emph{Case 8, 16, 32:}}\\
+In task 3, fpga is suppossed to show those pixels detected as skin ones. The others will be blocked, which results that only skin parts will be shown on the screen.\\
+But the result will not be very good: there will be many incorrect outputs, such like fluorescent lamp, white wall, since we are using a basic skin color detection algorithm.
+In task 4, instead of blocking other pixels and displaying skin ones, fpga is suppossed to change skin color by replace original pixels' data with different color and output the other pixel like their original colors.
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+  wire [8:0]         max_r = ((in_r + 64)<255) ? in_r + 64 : 255;
+  wire [8:0]         min_r = ((in_r - 32)>0) ? in_r - 32 : 0;
+  wire [8:0]         max_g = ((in_g + 64)<255) ? in_g + 64 : 255;
+  wire [8:0]         min_g = ((in_g - 32)>0) ? in_g - 32 : 0;
+  wire [8:0]         max_b = ((in_b + 64)<255) ? in_b + 64 : 255;
+  wire [8:0]         min_b = ((in_b - 32)>0) ? in_b - 32 : 0;
+\end{lstlisting}
+\end{\baselinestretch}
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+out_r <= min_r; out_g <= max_g; out_b <= min_b;
+\end{lstlisting}
+\end{\baselinestretch}
+If max\underline{ }g was used to replace out\underline{ }g, the skin pixels will be replaced by green pixels.
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+out_r <= max_r; out_g <= min_g; out_b <= min_b;
+\end{lstlisting}
+\end{\baselinestretch}
+If max\underline{ }r was used to replace out\underline{ }r, the skin pixels will be replaced by red pixels.
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+out_r <= min_r; out_g <= min_g; out_b <= max_b;
+\end{lstlisting}
+\end{\baselinestretch}
+If max\underline{ }b was used to replace out\underline{ }b, the skin pixels will be replaced by blue pixels.
+
+\textbf{\emph{Case 64, 128:}}\\
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+if (in_skin)
+  out_r <= max_r; out_g <= max_g; out_b <= max_b;
+else
+  out_r <= in_r; out_g <= in_g; out_b <= in_b;
+\end{lstlisting}
+\end{\baselinestretch}
+If all out\underline{ } were replaced by max\underline{ }, the skin pixels will become pale instead of original flesh or pink color.
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+if (in_skin)
+  out_r <= in_r; out_g <= in_g; out_b <= in_b;
+else
+  out_r <= max_r; out_g <= max_g; out_b <= max_b;
+\end{lstlisting}
+\end{\baselinestretch}
+Doing fun, after exchange these two line unblocking assignment, the skin pixels went out directly, and other pixels become greyer than before. But there is a side effect: some pixels on skin may not be detected as a skin pixel, which results that the whole skin looks darker than before. 
+
+\textbf{\emph{Case 255:}}\\
+\renewcommand{\baselinestretch}{0.75}
+\begin{lstlisting}
+if (in_skin)
+  out_r <= in_r; out_g <= in_g; out_b <= in_b;
+else
+  out_r <= min_r; out_g <= min_g; out_b <= min_b;
+\end{lstlisting}
+\end{\baselinestretch}
+This time, all the black color shined, and skin color output directly. It because we set that, if a pixel is not a skin pixel, then it will be replaced by min\underline{ }r, min\underline{ }g and min\underline{ }b.
+ 
+%=================================================================
+\section{Conclusions and Future Work}
+\label{sec:concl}
+In this lab session, pipelining and signal aligning techniques were employed to process input signals from a camera. In addition, selection and logical color conversion were applied to produce several special visual effects.
+
+%=====================================================================
+\subsection{\emph{Problems} occurred in our approach}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{overall.png}
+\caption{Design Diagram}
+\end{figure}
+From the figure above, we can see that the output signals (ctl, r, g, b) of \textbf{\emph{delay\underline{ }line}} module need to be synchronous with the output signals (y, u, v) of \textbf{\emph{rgbyuv}} module. Sine a 4-stage pipeline was employed in \textbf{\emph{rgbyuv}} module, the \textbf{\emph{delay\underline{ }line}} module is also requried to have a 4-stage pipeline.\\
+If the number of stages in \textbf{\emph{delay\underline{ }line}} module is different from \textbf{\emph{rgbyuv}}, fpge woudl not generate video output to screen.\\
+
+\subsection{Available \emph{Improvement}}
+10 kinds of color effect were conducted based on skin pixel detection and YUV colorspace. Actually, more achivements are Available. For example, one way is that we can change the skin color detect block to other color detect. Another way is that instead of using one-hot stratage, which will only have 8 features, we can actually add more features by changing the output with different color combinations like what was done in this report.
+%=====================================================================
+\end{document}
